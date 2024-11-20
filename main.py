@@ -3,7 +3,7 @@ import signal
 import sys
 import os
 
-# Глобальный флаг для управления сервером
+# Глобальный флаг для управления сервером 
 server_running = True
 
 # Таблица маршрутов
