@@ -9,42 +9,43 @@ server_running = True
 # Таблица маршрутов
 routes = {}
 
-
-
-def render_response(text, status_code="200 OK"):
+def render_response(content, status_code="200 OK", content_type="text/html"):
     """
-    Функция для создания HTTP-ответа.
-    :param text: Тело страницы (HTML-контент).
-    :param status_code: Код ответа (по умолчанию 200 OK).
-    :return: Форматированный HTTP-ответ.
+    Генерация HTTP-ответа.
+    :param content: Тело ответа (HTML, JSON и т. д.).
+    :param status_code: HTTP статус код.
+    :param content_type: Тип контента (например, text/html или application/json).
+    :return: Строка HTTP-ответа.
     """
-    response = f"HTTP/1.1 {status_code}\nContent-Type: text/html; charset=utf-8\nConnection: close\n\n{text}"
-    print(f"Формируем ответ: {response}")  # Логируем полностью сформированный ответ
+    response = f"HTTP/1.1 {status_code}\nContent-Type: {content_type}; charset=utf-8\nConnection: close\n\n{content}"
+    print(f"Сформирован ответ: {response}")  # Логируем полностью сформированный ответ
     return response
 
-
-
-
-
 def render_template(template_name, **kwargs):
-    print(f"Пытаемся загрузить шаблон: {template_name}")  # Логируем попытку загрузки шаблона
+    """
+    Загрузка и рендеринг шаблона с заменой переменных.
+    :param template_name: Имя файла шаблона.
+    :param kwargs: Словарь значений для замены в шаблоне.
+    :return: Строка с результатом рендеринга.
+    """
+    print(f"Пытаемся загрузить шаблон: {template_name}")
     try:
         template_path = f"templates/{template_name}"
         if os.path.exists(template_path):
-            print(f"Шаблон найден: {template_path}")  # Шаблон существует
-            with open(template_path, 'r', encoding='utf-8') as f:
-                template = f.read()
+            print(f"Шаблон найден: {template_path}")
+            with open(template_path, 'r', encoding='utf-8') as file:
+                template = file.read()
 
-            # Заменяем переменные
+            # Замена переменных на их значения
             for key, value in kwargs.items():
                 template = template.replace(f"{{{{ {key} }}}}", str(value))
 
             return template
         else:
-            print(f"Шаблон не найден: {template_path}")  # Шаблон не найден
+            print(f"Шаблон не найден: {template_path}")
             return render_response("<p>404 Шаблон не найден</p>", status_code="404 Not Found")
     except Exception as e:
-        print(f"Ошибка при загрузке шаблона {template_name}: {e}")
+        print(f"Ошибка при загрузке шаблона: {e}")
         return render_response("<p>500 Внутренняя ошибка сервера</p>", status_code="500 Internal Server Error")
 
 def route(path):
@@ -53,13 +54,13 @@ def route(path):
     :param path: URL-путь.
     """
     def decorator(func):
-        routes[path] = func  # Сохраняем обработчик для маршрута
+        routes[path] = func  # Сохраняем обработчик маршрута
         return func
     return decorator
 
 def get_local_ip():
     """
-    Получает локальный IP-адрес машины.
+    Получает локальный IP-адрес устройства.
     """
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         try:
@@ -70,7 +71,7 @@ def get_local_ip():
 
 def signal_handler(sig, frame):
     """
-    Обрабатывает сигнал прерывания (Ctrl+C).
+    Обработчик сигнала прерывания (Ctrl+C).
     """
     global server_running
     print("\nСервер останавливается...")
@@ -78,11 +79,10 @@ def signal_handler(sig, frame):
 
 def handle_request(request):
     """
-    Обрабатывает HTTP-запрос и вызывает соответствующий маршрут.
-    :param request: Текст запроса от клиента.
+    Обрабатывает HTTP-запрос.
+    :param request: Текст HTTP-запроса.
     :return: HTTP-ответ.
     """
-    # Разбираем первую строку HTTP-запроса, чтобы извлечь метод и путь
     lines = request.split("\r\n")
     if not lines:
         return render_response("<p>400 Некорректный запрос</p>", status_code="400 Bad Request")
@@ -94,19 +94,16 @@ def handle_request(request):
     if path in routes:
         print(f"Обрабатываем маршрут: {path}")
         response = routes[path]()  # Вызываем обработчик маршрута
-        print(f"Ответ для маршрута {path}: {response}")  # Логируем результат ответа
         return response
     else:
-        # Если маршрут не найден, возвращаем 404
         print(f"Маршрут не найден: {path}")
         return render_response("<p>404 Страница не найдена</p>", status_code="404 Not Found")
 
-
 def run_server(host="0.0.0.0", port=8080):
     """
-    Основная функция для запуска сервера.
-    :param host: Хост (адрес), на котором сервер будет работать.
-    :param port: Порт, на котором сервер будет слушать соединения.
+    Запуск HTTP-сервера.
+    :param host: Адрес, на котором сервер будет работать.
+    :param port: Порт для подключения.
     """
     global server_running
     local_ip = get_local_ip()
@@ -140,10 +137,7 @@ def run_server(host="0.0.0.0", port=8080):
                 continue  # Игнорируем ошибку и продолжаем работать
 
     except KeyboardInterrupt:
-        # Обработка сигнала KeyboardInterrupt (Ctrl+C)
         print("\nСервер завершил работу.")
-    except Exception as e:
-        print(f"Ошибка при запуске сервера: {e}")
     finally:
         server_socket.close()
         print("Сервер завершил работу.")
@@ -151,23 +145,24 @@ def run_server(host="0.0.0.0", port=8080):
 # Регистрируем маршруты
 @route("/")
 def index():
-    return render_response("<h1>Главная страница</h1><p>Добро пожаловать!</p>")
+    return render_response(render_template("index.html", title="Главная страница", content="Добро пожаловать!"))
 
 @route("/about")
 def about():
-    print("Вызвана функция about()")  # Логируем вызов функции
     title = "О нас"
     content = "Информация о проекте."
-    # Используем шаблон для рендеринга
-    return render_template("about.html", title=title, content=content)
+    return render_response(render_template("about.html", title=title, content=content))
 
 @route("/contact")
 def contact():
-    print("Вызвана функция contact()")  # Логируем вызов функции
     title = "Контакты"
     content = "Свяжитесь с нами через email."
-    return render_template("contact.html", title=title, content=content)
-    
+    return render_response(render_template("contact.html", title=title, content=content))
+
+@route("/favicon.ico")
+def favicon():
+    return render_response("<p>404 Фавикон не найден</p>", status_code="404 Not Found")
+
 
 # Запуск сервера
 if __name__ == "__main__":
