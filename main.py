@@ -9,6 +9,8 @@ server_running = True
 # Таблица маршрутов
 routes = {}
 
+
+
 def render_response(text, status_code="200 OK"):
     """
     Функция для создания HTTP-ответа.
@@ -16,7 +18,34 @@ def render_response(text, status_code="200 OK"):
     :param status_code: Код ответа (по умолчанию 200 OK).
     :return: Форматированный HTTP-ответ.
     """
-    return f"HTTP/1.1 {status_code}\nContent-Type: text/html; charset=utf-8\n\n{text}"
+    response = f"HTTP/1.1 {status_code}\nContent-Type: text/html; charset=utf-8\nConnection: close\n\n{text}"
+    print(f"Формируем ответ: {response}")  # Логируем полностью сформированный ответ
+    return response
+
+
+
+
+
+def render_template(template_name, **kwargs):
+    print(f"Пытаемся загрузить шаблон: {template_name}")  # Логируем попытку загрузки шаблона
+    try:
+        template_path = f"templates/{template_name}"
+        if os.path.exists(template_path):
+            print(f"Шаблон найден: {template_path}")  # Шаблон существует
+            with open(template_path, 'r', encoding='utf-8') as f:
+                template = f.read()
+
+            # Заменяем переменные
+            for key, value in kwargs.items():
+                template = template.replace(f"{{{{ {key} }}}}", str(value))
+
+            return template
+        else:
+            print(f"Шаблон не найден: {template_path}")  # Шаблон не найден
+            return render_response("<p>404 Шаблон не найден</p>", status_code="404 Not Found")
+    except Exception as e:
+        print(f"Ошибка при загрузке шаблона {template_name}: {e}")
+        return render_response("<p>500 Внутренняя ошибка сервера</p>", status_code="500 Internal Server Error")
 
 def route(path):
     """
@@ -63,10 +92,15 @@ def handle_request(request):
 
     # Проверяем наличие маршрута
     if path in routes:
-        return routes[path]()  # Вызываем обработчик маршрута
+        print(f"Обрабатываем маршрут: {path}")
+        response = routes[path]()  # Вызываем обработчик маршрута
+        print(f"Ответ для маршрута {path}: {response}")  # Логируем результат ответа
+        return response
     else:
         # Если маршрут не найден, возвращаем 404
+        print(f"Маршрут не найден: {path}")
         return render_response("<p>404 Страница не найдена</p>", status_code="404 Not Found")
+
 
 def run_server(host="0.0.0.0", port=8080):
     """
@@ -108,6 +142,8 @@ def run_server(host="0.0.0.0", port=8080):
     except KeyboardInterrupt:
         # Обработка сигнала KeyboardInterrupt (Ctrl+C)
         print("\nСервер завершил работу.")
+    except Exception as e:
+        print(f"Ошибка при запуске сервера: {e}")
     finally:
         server_socket.close()
         print("Сервер завершил работу.")
@@ -119,11 +155,19 @@ def index():
 
 @route("/about")
 def about():
-    return render_response("<h1>О нас</h1><p>Информация о проекте.</p>")
+    print("Вызвана функция about()")  # Логируем вызов функции
+    title = "О нас"
+    content = "Информация о проекте."
+    # Используем шаблон для рендеринга
+    return render_template("about.html", title=title, content=content)
 
 @route("/contact")
 def contact():
-    return render_response("<h1>Контакты</h1><p>Свяжитесь с нами.</p>")
+    print("Вызвана функция contact()")  # Логируем вызов функции
+    title = "Контакты"
+    content = "Свяжитесь с нами через email."
+    return render_template("contact.html", title=title, content=content)
+    
 
 # Запуск сервера
 if __name__ == "__main__":
