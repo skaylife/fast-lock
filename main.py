@@ -1,11 +1,22 @@
 import socket
 import signal
+import sys
+import os
 
 # Глобальный флаг для управления сервером
 server_running = True
 
 # Таблица маршрутов
 routes = {}
+
+def render_response(text, status_code="200 OK"):
+    """
+    Функция для создания HTTP-ответа.
+    :param text: Тело страницы (HTML-контент).
+    :param status_code: Код ответа (по умолчанию 200 OK).
+    :return: Форматированный HTTP-ответ.
+    """
+    return f"HTTP/1.1 {status_code}\nContent-Type: text/html; charset=utf-8\n\n{text}"
 
 def route(path):
     """
@@ -34,7 +45,7 @@ def signal_handler(sig, frame):
     """
     global server_running
     print("\nСервер останавливается...")
-    server_running = False
+    server_running = False  # Устанавливаем флаг для завершения работы
 
 def handle_request(request):
     """
@@ -45,7 +56,7 @@ def handle_request(request):
     # Разбираем первую строку HTTP-запроса, чтобы извлечь метод и путь
     lines = request.split("\r\n")
     if not lines:
-        return "HTTP/1.1 400 Bad Request\n\n<p>Некорректный запрос</p>"
+        return render_response("<p>400 Некорректный запрос</p>", status_code="400 Bad Request")
 
     method, path, *_ = lines[0].split()
     print(f"Метод: {method}, Путь: {path}")
@@ -55,7 +66,7 @@ def handle_request(request):
         return routes[path]()  # Вызываем обработчик маршрута
     else:
         # Если маршрут не найден, возвращаем 404
-        return "HTTP/1.1 404 Not Found\n\n<p>Страница не найдена</p>"
+        return render_response("<p>404 Страница не найдена</p>", status_code="404 Not Found")
 
 def run_server(host="0.0.0.0", port=8080):
     """
@@ -78,19 +89,25 @@ def run_server(host="0.0.0.0", port=8080):
 
     try:
         while server_running:
-            server_socket.settimeout(1.0)
             try:
                 client_socket, client_address = server_socket.accept()
                 with client_socket:
                     print(f"Подключение от {client_address}")
-                    request = client_socket.recv(1024).decode("utf-8")
+                    request = client_socket.recv(1024).decode("utf-8", errors="replace")
                     print(f"Запрос: {request}")
 
                     # Обрабатываем запрос и формируем ответ
                     response = handle_request(request)
                     client_socket.sendall(response.encode("utf-8"))
             except socket.timeout:
-                continue
+                continue  # Если соединений нет, продолжаем ожидание
+            except Exception as e:
+                print(f"Ошибка обработки запроса: {e}")
+                continue  # Игнорируем ошибку и продолжаем работать
+
+    except KeyboardInterrupt:
+        # Обработка сигнала KeyboardInterrupt (Ctrl+C)
+        print("\nСервер завершил работу.")
     finally:
         server_socket.close()
         print("Сервер завершил работу.")
@@ -98,16 +115,19 @@ def run_server(host="0.0.0.0", port=8080):
 # Регистрируем маршруты
 @route("/")
 def index():
-    return "HTTP/1.1 200 OK\nContent-Type: text/html; charset=utf-8\n\n<h1>Главная страница</h1><p>Добро пожаловать!</p>"
+    return render_response("<h1>Главная страница</h1><p>Добро пожаловать!</p>")
 
 @route("/about")
 def about():
-    return "HTTP/1.1 200 OK\nContent-Type: text/html; charset=utf-8\n\n<h1>О нас</h1><p>Информация о проекте.</p>"
+    return render_response("<h1>О нас</h1><p>Информация о проекте.</p>")
 
 @route("/contact")
 def contact():
-    return "HTTP/1.1 200 OK\nContent-Type: text/html; charset=utf-8\n\n<h1>Контакты</h1><p>Свяжитесь с нами.</p>"
+    return render_response("<h1>Контакты</h1><p>Свяжитесь с нами.</p>")
 
 # Запуск сервера
 if __name__ == "__main__":
+    # Устанавливаем кодировку для консоли
+    if os.name == 'nt':  # Для Windows
+        sys.stdout.reconfigure(encoding='utf-8')
     run_server()
