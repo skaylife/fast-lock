@@ -9,7 +9,7 @@ server_running = True
 # Таблица маршрутов
 routes = {}
 
-def render_response(content, status_code="200 OK", content_type="text/html"):
+def generate_response(content, status_code="200 OK", content_type="text/html"):
     """
     Генерация HTTP-ответа.
     :param content: Тело ответа (HTML, JSON и т. д.).
@@ -18,7 +18,6 @@ def render_response(content, status_code="200 OK", content_type="text/html"):
     :return: Строка HTTP-ответа.
     """
     response = f"HTTP/1.1 {status_code}\nContent-Type: {content_type}; charset=utf-8\nConnection: close\n\n{content}"
-    print(f"Сформирован ответ: {response}")  # Логируем полностью сформированный ответ
     return response
 
 def render_template(template_name, **kwargs):
@@ -40,13 +39,14 @@ def render_template(template_name, **kwargs):
             for key, value in kwargs.items():
                 template = template.replace(f"{{{{ {key} }}}}", str(value))
 
-            return template
+            # Формируем и возвращаем полный HTTP-ответ
+            return generate_response(template)
         else:
             print(f"Шаблон не найден: {template_path}")
-            return render_response("<p>404 Шаблон не найден</p>", status_code="404 Not Found")
+            return generate_response("<p>404 Шаблон не найден</p>", status_code="404 Not Found")
     except Exception as e:
         print(f"Ошибка при загрузке шаблона: {e}")
-        return render_response("<p>500 Внутренняя ошибка сервера</p>", status_code="500 Internal Server Error")
+        return generate_response("<p>500 Внутренняя ошибка сервера</p>", status_code="500 Internal Server Error")
 
 def route(path):
     """
@@ -54,7 +54,7 @@ def route(path):
     :param path: URL-путь.
     """
     def decorator(func):
-        routes[path] = func  # Сохраняем обработчик маршрута
+        routes[path] = func  # Сохраняем обработчик для маршрута
         return func
     return decorator
 
@@ -85,7 +85,7 @@ def handle_request(request):
     """
     lines = request.split("\r\n")
     if not lines:
-        return render_response("<p>400 Некорректный запрос</p>", status_code="400 Bad Request")
+        return generate_response("<p>400 Некорректный запрос</p>", status_code="400 Bad Request")
 
     method, path, *_ = lines[0].split()
     print(f"Метод: {method}, Путь: {path}")
@@ -97,7 +97,7 @@ def handle_request(request):
         return response
     else:
         print(f"Маршрут не найден: {path}")
-        return render_response("<p>404 Страница не найдена</p>", status_code="404 Not Found")
+        return generate_response("<p>404 Страница не найдена</p>", status_code="404 Not Found")
 
 def run_server(host="0.0.0.0", port=8080):
     """
@@ -145,24 +145,23 @@ def run_server(host="0.0.0.0", port=8080):
 # Регистрируем маршруты
 @route("/")
 def index():
-    return render_response(render_template("index.html", title="Главная страница", content="Добро пожаловать!"))
+    return render_template("index.html", title="Главная страница", content="Добро пожаловать!")
 
 @route("/about")
 def about():
     title = "О нас"
     content = "Информация о проекте."
-    return render_response(render_template("about.html", title=title, content=content))
+    return render_template("about.html", title=title, content=content)
 
 @route("/contact")
 def contact():
     title = "Контакты"
     content = "Свяжитесь с нами через email."
-    return render_response(render_template("contact.html", title=title, content=content))
+    return render_template("contact.html", title=title, content=content)
 
 @route("/favicon.ico")
 def favicon():
-    return render_response("<p>404 Фавикон не найден</p>", status_code="404 Not Found")
-
+    return generate_response("<p>404 Фавикон не найден</p>", status_code="404 Not Found")
 
 # Запуск сервера
 if __name__ == "__main__":
